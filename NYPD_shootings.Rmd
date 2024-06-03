@@ -553,7 +553,7 @@ The per-victim and per-incident models predict that the murder rate stays the sa
 
 Based on RMSE alone, we should favor the linear model: However, the RMSE for the linear model (`r round(RMSE(incident_cnts$murders, predict(lm_fit, newdata = incident_cnts)), 2)`) is only slightly better than the per-victim model (`r round(RMSE(incident_cnts$murders, incident_cnts$victims * global_murders_per_victim), 2)`). 
 
-Moreover, the observed rate in above plot suggests that both the per-victim and linear models have regions of localized strength.  At a high-level, the observed rate is bifurcated---less than 0.2 murders per victim for *n* < 4, and ~0.4 murders per victim for *n* > 3---a difference of approximately 2x. The per-victim model appears to work best for *n* < 4, and the linear model appears to work best for for *n* > 3. 
+Moreover, the observed rate in above plot suggests that both the per-victim and linear models have regions of localized strength. At a high-level, the observed rate is bifurcated---less than 0.2 murders per victim for *n* < 4, and ~0.4 murders per victim for *n* > 3---a difference of approximately 2x. The per-victim model appears to work best for *n* < 4, and the linear model appears to work best for for *n* > 3. 
 
 It's worth noting, however, that the upward trend in the murder rate for larger values of *n* could be an artifact of small sample sizes and that the linear model overfit to the few available incidents. 
 
