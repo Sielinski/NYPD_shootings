@@ -3,9 +3,9 @@ title: "NYPD Shootings: Murder Rates of Single- and Multi-victim Shootings"
 author: "Ron Sielinski"
 date: "`r Sys.Date()`"
 output:
-  pdf_document: default
   word_document: default
   html_document: default
+  pdf_document: default
 data_URL: "https://data.cityofnewyork.us/api/views/833y-fsy8/rows.csv?accessType=DOWNLOAD"
 ---
 
@@ -21,7 +21,7 @@ New York City has kept track of all the shootings that have taken place within i
 
 The more people who get shot in an incident, the more likely that someone will die. That makes sense mathematically: If only one person gets shot, only one person has a chance of dying. But if twelve people get shot, twelve people have a chance of dying. 
 
-But that doesn't necessarily mean that multi-victim incidents are more deadly on a *per-victim* basis. If a shooting involves only one victim, there's a good chance that the perpetrator will have meant to harm the victim, increasingly the likelihood of fatal injuries. In a multi-victim shooting, however, there's a reasonable chance that some of the victims will have been innocent bystanders and their injuries incidental. On a per-victim basis, we might actually find that single-victim shootings are *more* deadly. 
+But that doesn't necessarily mean that multi-victim incidents are more deadly on a *per-victim* basis. If a shooting involves only one victim, there's a good chance that the perpetrator will have meant to harm the victim, increasingly the likelihood of fatal injuries. In a multi-victim shooting, however, there's a reasonable chance that some of the victims will have been innocent bystanders and their injuries incidental. On a per-victim basis, we might actually find that multi-victim shootings are *less* deadly. 
 
 This analysis will explore over 20,000 shootings that taken place in New York City since 2006 to find out. 
 
@@ -104,7 +104,7 @@ head(incident_cnts)
 ```
 The results show that one incident had eighteen victims!
 
-However, there is only one eighteen-victim incident out of `r nrow(incident_cnts)` incidents, which raises questions about the typical number of victims and murders involved in each incident. 
+However, there is only one eighteen-victim incident out of `r nrow(incident_cnts)` incidents. 
 
 ```{r victims_dist}
 
@@ -122,7 +122,7 @@ incident_cnts |>
 
 ```
 
-Plotting the frequency distribution of the victims per incident reveals that most incidents have only one victim. (By definition, an incident involves at least one victim, so no incidents can have zero victims.) 
+Plotting the frequency distribution of the victims per incident reveals that most incidents had only one victim. (By definition, an incident involves at least one victim, so no incidents can have zero victims.) 
 
 Given the nature of the data (i.e., a count of victims) and the shape of the curve, the count of victims per incident appears to follow a Poisson distribution. 
 
@@ -151,9 +151,9 @@ A frequency distribution plot of the murders per incident looks again like a Poi
 
 In this case, however, it's possible for incidents to have no murders, which is most often the case. 
 
-A final question to explore is the number of perpetrators (or shooters) per incident. The data doesn't specifically count or uniquely identify perpetrators, but for each incident, we can use any changes in the perpetrator(s) age, sex, or race to determine whether multiple shooters were involved. 
+### Perpetrators
 
-### Shooters
+A final question to explore is the number of perpetrators (or shooters) per incident. The data doesn't specifically count or uniquely identify perpetrators, but for each incident, we can use any changes in the perpetrator(s) age, sex, or race to determine whether multiple shooters were involved. 
 
 Here's a single incident that had shooters from five separate demographic groups.
 
@@ -204,13 +204,13 @@ This adds a new dimension to the original hypothesis. Without explicitly stating
 
 ### Per-victim Model
 
-Because the above show plots focus on just victims and just murders, they don't offer much insight into the  relationship is between victims and murders. 
+Because the above show plots focus on just victims and just murders, they don't offer much insight into the relationship between victims and murders. 
 
 Plotting the average number of murders by the number of victims shows us that, as the number of victims (*n*) increases, so does the average number of murders. 
 
-It's worth noting, that for some values of *n*, there were no murders. There were only two seven-victim shootings and two nine-victim shootings. That draws attention to the fact that for large value of *n*, we might not have enough data to draw statistically significant inferences.  
+It's worth noting, that for some values of *n*, there were no incidents. Looking back on the frequency distribution plot of victims per incident reminds us that there were no incidents with 11, 13, 14, 15, or 17 victims. For large values of *n*, we might not have enough data to draw statistically significant inferences.  
 
-```{r actuals_bar}
+```{r actuals_bar, warning = F}
 
 #########################
 ## Bar Plot of Actuals
@@ -232,19 +232,27 @@ murder_rates <- incident_cnts |>
   mutate(per_victim_rate = per_incident_rate / victims) |>
   arrange(victims)
 
+# add rows to the data frame for any missing actuals
+murder_rates <- data.frame(victims = n_victims) |>
+  left_join(murder_rates, by = 'victims')
+
+# convert victims to a factor to enhance plotting
+#murder_rates$victims <- factor(murder_rates$victims, levels = n_victims)
+
 # plot the result
 murder_rates |>
   select(victims, starts_with('per_incident')) |>
   pivot_longer(cols = starts_with('per_incident'),
                names_to = 'rate_type',
                values_to = 'rate') |>
-  ggplot(aes(x = factor(victims), y = rate, fill = rate_type)) +
+  ggplot(aes(x = factor(victims, levels = n_victims), y = rate, fill = rate_type)) +
   geom_bar(stat = 'identity', position = position_dodge(width = 0.9)) +
   #geom_text(aes(x = factor(victims), y = rate, label = sprintf("%.2f", rate)), 
   #          position = position_dodge(width = 0.9), 
   #          hjust = 1.25,
   #          angle = 90, 
   #          color = 'white') +
+  scale_x_discrete(drop = F) +
   scale_fill_manual(values = c('black'), labels = c('Observed Rate')) +
   labs(title = 'Average Number of Murders by Number of Victims',
        y = 'Average Number of Murders',
@@ -252,12 +260,13 @@ murder_rates |>
 
 ```
 
-Of course, the number of murders is always capped by the number of victims, so the average for an *n*-victim murder can never exceed *n*. To adjust for the number of victims, we can calculate a global murders-to-victims rate.  
+To address the missing data, we can create a model that predicts the number of murders we could have expected. 
 
-We can then multiply the per-victim rate by *n* to model the number of murders we can expect for each *n*. 
+The simplest model is based on a global murders-to-victims rate. We simply multiply *n* by the per-victim rate to predict the the average number of murders we'd expect for each *n*. 
+
 However, a plot of the observed and expected values suggests that the resulting model performs poorly, overestimating the number of murders for small values of *n* and underestimating the number of murders for large *n*.   
 
-```{r global_rate}
+```{r global_rate, warning = F}
 
 ####################################
 ## Global Murders-to-victims Rate
@@ -280,15 +289,17 @@ murder_rates |>
   pivot_longer(cols = starts_with('per_incident'),
                names_to = 'rate_type',
                values_to = 'rate') |>
-  ggplot(aes(x = factor(victims), y = rate, fill = rate_type)) +
+  ggplot(aes(x = factor(victims, levels = n_victims), y = rate, fill = rate_type)) +
   geom_bar(stat = 'identity', position = position_dodge(width = 0.9)) +
   #geom_text(aes(x = factor(victims), y = rate, label = sprintf("%.2f", rate)), 
   #          position = position_dodge(width = 0.9), 
   #          hjust = 1.25,
   #          angle = 90, 
   #          color = 'white') +
+  scale_x_discrete(drop = F) +
   scale_fill_manual(name = 'Rate/Model', 
-                    values = c('darkgrey', 'black'), labels = c('Per-victim Rate ', 'Observed Rate')) +
+                    values = c('darkgrey', 'black'), 
+                    labels = c('Per-victim Rate ', 'Observed Rate')) +
   labs(title = 'Average Number of Murders by Number of Victims',
        y = 'Average Number of Murders',
        x = 'Number of Victims (n)')
@@ -315,7 +326,7 @@ The RMSE for estimates based on the per-victim model is `r round(RMSE(incident_c
 
 Alternatively, we can model the number of murders using a Poisson distribution. In doing so, we shift our perspective slightly from the murders-to-victims rate, which is the average number of murders per *victim*, to the average number of murders per *incident*. 
 
-We can then use the properties of a Poisson distribution to model the number of murders that we can expect for each *n*. 
+We can then use the properties of a Poisson distribution to model the number of murders that we can expect for each number of murders per incident. 
 
 ```{r pois_model}
 
@@ -410,7 +421,7 @@ A high p-value suggests that the observed data is consistent with the expected v
 
 Note, however, that we could only test the model's first `r max_expected_bin` bins, because the number of incidents with >`r (max_expected_bin) - 1` murders was too small to include in the test. (All incidents with >`r (max_expected_bin) - 1` murders were combined into a single bin.) Nonetheless, incidents with <`r (max_expected_bin)` murders comprise `r round(sum(pois_model$incidents_pct[0:max_expected_bin]) * 100, 1)`% of incidents, so incidents with >`r (max_expected_bin) - 1` murders are low-probability outliers. 
 
-```{r pois_plot}
+```{r pois_plot, warning = F}
 
 # add results from the Poisson model to the results data frame
 murder_rates <- murder_rates |>
@@ -427,13 +438,14 @@ murder_rates |>
   pivot_longer(cols = starts_with('per_incident'),
                names_to = 'rate_type',
                values_to = 'rate') |>
-  ggplot(aes(x = factor(victims), y = rate, fill = rate_type)) +
+  ggplot(aes(x = factor(victims, levels = n_victims), y = rate, fill = rate_type)) +
   geom_bar(stat = 'identity', position = position_dodge(width = 0.9)) +
   #geom_text(aes(x = factor(victims), y = rate, label = sprintf("%.2f", rate)), 
   #          position = position_dodge(width = 0.9), 
   #          hjust = 1.25,
   #          angle = 90, 
   #          color = 'white') +
+  scale_x_discrete(drop = F) + 
   scale_fill_manual(name = 'Rate/Model',
                     values = c('darkgrey', 'blue', 'black'), 
                     labels = c('Per-victim Rate', 'Per-incident Rate', 'observed Rate')) +
@@ -456,8 +468,8 @@ Although the Poisson models uses the same murders-per-incident rate for every in
 RMSE(incident_cnts$murders, rep(murders_lambda, nrow(incident_cnts)))
 
 ```
+Despite the fact that the per-incident model does a better job of predicting the average number of murders across more values of n, it's RMSE (`r round(RMSE(incident_cnts$murders, rep(murders_lambda, nrow(incident_cnts))), 2)`) is higher (i.e., worse) than the RMSE of the per-victim model (`r round(RMSE(incident_cnts$murders, incident_cnts$victims * global_murders_per_victim), 2)`). One reason is that the latter model performs better for incidents with three or fewer victims, which comprise `r round(count(filter(incident_cnts, victims %in% 1:3)) / cnt_all_incidents * 100, 2)`% of all incidents, so their errors have a substantial cumulative effect on the overall RMSE of a model. 
 
-The per-incident model's RMSE is `r round(RMSE(incident_cnts$murders, rep(murders_lambda, nrow(incident_cnts))), 2)`, not quite as good as the per-victim model, which has an RMSE of `r round(RMSE(incident_cnts$murders, incident_cnts$victims * global_murders_per_victim), 2)`. 
 
 ### Linear Model
 
@@ -482,7 +494,7 @@ murder_rates |>
   pivot_longer(cols = starts_with('per_incident'),
                names_to = 'rate_type',
                values_to = 'rate') |>
-  ggplot(aes(x = factor(victims), y = rate, fill = rate_type)) +
+  ggplot(aes(x = factor(victims, levels = n_victims), y = rate, fill = rate_type)) +
   geom_bar(stat = 'identity', position = position_dodge(width = 0.9)) +
   #geom_text(aes(x = factor(victims), y = rate, label = sprintf("%.2f", rate)), 
   #          position = position_dodge(width = 0.9), 
@@ -492,6 +504,7 @@ murder_rates |>
   # add the linear model
   #geom_line(aes(y = linear_model), color = 'red', linetype = 'dashed') +  
   #geom_point(aes(y = linear_model), color = 'red') +  
+  scale_x_discrete(drop = F) +
   scale_fill_manual(name = 'Rate/Model', 
                     values = c('darkgrey', 'lightblue', 'blue', 'black'), 
                     labels = c('Per-victim Rate', 'Linear Model', 'Per-incident Rate', 'observed Rate')) +
@@ -537,7 +550,8 @@ murder_rates |>
                'Linear Model' = 'lightblue', 
                'Per-incident (Poisson) Model' = 'blue', 
                'Observed Rate' = 'black'),
-    labels = c('Linear Model', 'Per-incident (Poisson) Model', 'Per-victim Model', 'Observed Rate')) +
+    labels = c('Linear Model', 'Per-incident (Poisson) Model', 
+               'Per-victim Model', 'Observed Rate')) +
   scale_fill_manual(
     name = 'Observed Rate',
     values = c('Observed Rate' = 'black'),
@@ -549,24 +563,22 @@ murder_rates |>
 
 ```
 
-The per-victim and per-incident models predict that the murder rate stays the same for all values of *n*, which would suggest that all shootings are equally deadly, regardless of *n*. The linear model, on the other hand, predicts that the murder rate increases as *n* increases, which would suggest that single-victim shootings are *less* deadly than multi-victim shootings. (The model predicts an increased murder rate for *every* increment of *n*.)
+The per-victim and per-incident models predict that the murder rate stays the same for all values of *n*, which would suggest that all shootings are equally deadly, regardless of *n*. The linear model, on the other hand, predicts that the murder rate increases as *n* increases, which would suggest that multi-victim shootings are actually *more* deadly than sinlge-victim shootings. (The model predicts an increased murder rate for *every* increment of *n*.)
 
 Based on RMSE alone, we should favor the linear model: However, the RMSE for the linear model (`r round(RMSE(incident_cnts$murders, predict(lm_fit, newdata = incident_cnts)), 2)`) is only slightly better than the per-victim model (`r round(RMSE(incident_cnts$murders, incident_cnts$victims * global_murders_per_victim), 2)`). 
 
-Moreover, the observed rate in above plot suggests that both the per-victim and linear models have regions of localized strength. At a high-level, the observed rate is bifurcated---less than 0.2 murders per victim for *n* < 4, and ~0.4 murders per victim for *n* > 3---a difference of approximately 2x. The per-victim model appears to work best for *n* < 4, and the linear model appears to work best for for *n* > 3. 
+Moreover, the observed rate in above plot suggests that the per-victim and linear models both have regions where one works better than the other. At a high-level, the observed rate is bifurcated---less than 0.2 murders per victim for *n* < 4, and ~0.4 murders per victim for *n* > 3---a difference of approximately 2x. The per-victim model appears to work best for *n* < 4, and the linear model appears to work best for *n* > 3. 
 
 It's worth noting, however, that the upward trend in the murder rate for larger values of *n* could be an artifact of small sample sizes and that the linear model overfit to the few available incidents. 
 
 To mitigate the risk of small sample-bias elsewhere in this analysis, we used averages (i.e., global averages for the per-victim and per-incident models) and binning (i.e., combining bins with very few incidents to create a larger, more stable group for analysis). But nothing has been done to mitigate the risk of small-sample bias for the linear model. (The inclusion of confidence intervals might have made the effective of any small-sample bias more apparent.)
 
-Other sources of bias:
-
-* Most of the incidents (`r round(count(filter(incident_cnts, victims == 1)) / cnt_all_incidents * 100, 2)`%) involve only one victim, so single-victim incidents play a significant role in the overall RMSE of a model: Their errors will have a substantial cumulative impact on the RMSE. As the above plot illustrates, however, the expected murder rate of the per-victim model (`r round(murder_rates$per_victim_global[1], 2)`) is actually closer to the observed rate (`r round(murder_rates$per_victim_rate[1], 2)`) for single-victim incidents than the linear model (`r round(murder_rates$per_victim_linear[1], 2)`). 
+The data itself is another potential source of bias: 
 
 * The online guide to the data specifically refers to `INCIDENT_KEY` as a "randomly generated persistent ID for each arrest". That suggests that an incident might be counted only if a perpetrator is arrested. That might make the analysis blind to shootings---and murders---where an arrest did *not* occur. 
 
 * Likewise, the definition of "murder" is not clear. For example, does murder depend on a verdict or plea of guilty? Would the historic count of murders change if a perpetrator were acquitted? Similarly, is manslaughter (an *unintentional* killing) considered the same as---or different from---murder (an *intentional* killing)? A clear definition of "murder" is important for both a correct framing of the analysis and interpretation of results.
 
-More research and analysis are required to address these issues, but the possibility exists that the best model for the murder rate is actually some combination of the three. Multiple use cases exist where the best "model" is actually a combination of models: mixture models, zero-inflated models, ensemble models, and more. 
+More research and analysis are required to address these issues, but the possibility exists that the best model for the murder rate is actually some combination of the three. There are multiple ways to combine models and achieve improved overall performance: mixture models, ensemble models, and more. 
 
-Ultimately, the analysis in this paper suggests that single-victim shootings are *less* deadly than multi-victim incidents, but only when four or more victims are involved. When three or fewer victims are involved, single-victim shootings are approximately equally deadly. 
+Based on the analysis included in this paper, we can reasonably conclude that that the inflection point in murder rates isn’t between single- and multi-victim shootings: It’s between three and four victims. On average, the murder rate goes up when shootings involve four or more victims. 

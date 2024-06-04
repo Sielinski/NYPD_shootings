@@ -1,3 +1,5 @@
+write_excel_csv(ny_dat, 'ny_dat.csv')
+
 #################################
 ## Zero-inflated Poisson Model
 #################################
@@ -73,3 +75,4 @@ r_squared(incident_cnts$murders, incident_cnts$victims * global_rate)
 # more direct methods 
 summary(lm_fit)$r.squared
 cor(incident_cnts$victims, incident_cnts$murders) ^ 2
+
