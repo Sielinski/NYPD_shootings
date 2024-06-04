@@ -2,6 +2,7 @@
 .Rhistory
 .RData
 .Ruserdata
+.~$*
 
 # Excel files 
 /excel
