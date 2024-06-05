@@ -4,8 +4,8 @@ author: "Ron Sielinski"
 date: "`r Sys.Date()`"
 output:
   word_document: default
-  html_document: default
   pdf_document: default
+  html_document: default
 data_URL: "https://data.cityofnewyork.us/api/views/833y-fsy8/rows.csv?accessType=DOWNLOAD"
 ---
 
@@ -204,7 +204,7 @@ This adds a new dimension to the original hypothesis. Without explicitly stating
 
 ### Per-victim Model
 
-Because the above show plots focus on just victims and just murders, they don't offer much insight into the relationship between victims and murders. 
+Because the frequency distribution plots (above) focus on just victims and just murders, they don't offer much insight into the relationship between victims and murders. 
 
 Plotting the average number of murders by the number of victims shows us that, as the number of victims (*n*) increases, so does the average number of murders. 
 
@@ -264,7 +264,7 @@ To address the missing data, we can create a model that predicts the number of m
 
 The simplest model is based on a global murders-to-victims rate. We simply multiply *n* by the per-victim rate to predict the the average number of murders we'd expect for each *n*. 
 
-However, a plot of the observed and expected values suggests that the resulting model performs poorly, overestimating the number of murders for small values of *n* and underestimating the number of murders for large *n*.   
+However, a plot of the observed and expected values suggests that the resulting model performs poorly, overestimating the average number of murders for small values of *n* and underestimating the average for large *n*.   
 
 ```{r global_rate, warning = F}
 
@@ -324,7 +324,7 @@ The RMSE for estimates based on the per-victim model is `r round(RMSE(incident_c
 
 ### Per-incident Model
 
-Alternatively, we can model the number of murders using a Poisson distribution. In doing so, we shift our perspective slightly from the murders-to-victims rate, which is the average number of murders per *victim*, to the average number of murders per *incident*. 
+Alternatively, we can model the number of murders using a Poisson distribution. In doing so, we shift our perspective slightly from the average number of murders per *victim*, to the average number of murders per *incident*. 
 
 We can then use the properties of a Poisson distribution to model the number of murders that we can expect for each number of murders per incident. 
 
@@ -340,7 +340,7 @@ cnt_all_incidents <- nrow(incident_cnts)
 murders_lambda <- mean(incident_cnts$murders)
 
 # we'll want to compare the model results with actuals, so count the incidents 
-# and sum the murders for each number of murders (n)
+# and sum the murders for each number of murders
 pois_model <- incident_cnts |> 
   summarize(incidents_cnt = n(), 
             murders_cnt = sum(murders), 
@@ -457,7 +457,7 @@ murder_rates |>
 
 For *n* > 3, the per-incident model (i.e., Poisson model) comes closer to predicting the observed murder rates than the per-victim model. For small *n*, the per-victim model is better. 
 
-Here, it's important not to confuse the *n* (the number of victims) with the bins in the chi-squared test (murders per incident). Again, incidents with <`r (max_expected_bin)` murders comprise `r round(sum(pois_model$incidents_pct[0:max_expected_bin]) * 100, 1)`% of incidents and could have been spread across all values of *n*.  
+Here, it's important not to confuse *n* (the number of victims) with the bins in the chi-squared test (murders per incident). Again, incidents with <`r (max_expected_bin)` murders comprise `r round(sum(pois_model$incidents_pct[0:max_expected_bin]) * 100, 1)`% of incidents and could have been spread across all values of *n*.  
 
 A more robust way to compare the overall performance of the per-incident and per-victim models is through their RSME values. 
 
@@ -468,14 +468,14 @@ Although the Poisson models uses the same murders-per-incident rate for every in
 RMSE(incident_cnts$murders, rep(murders_lambda, nrow(incident_cnts)))
 
 ```
-Despite the fact that the per-incident model does a better job of predicting the average number of murders across more values of n, it's RMSE (`r round(RMSE(incident_cnts$murders, rep(murders_lambda, nrow(incident_cnts))), 2)`) is higher (i.e., worse) than the RMSE of the per-victim model (`r round(RMSE(incident_cnts$murders, incident_cnts$victims * global_murders_per_victim), 2)`). One reason is that the latter model performs better for incidents with three or fewer victims, which comprise `r round(count(filter(incident_cnts, victims %in% 1:3)) / cnt_all_incidents * 100, 2)`% of all incidents, so their errors have a substantial cumulative effect on the overall RMSE of a model. 
+Despite the fact that the per-incident model does a better job of predicting the average number of murders across more values of n, its RMSE (`r round(RMSE(incident_cnts$murders, rep(murders_lambda, nrow(incident_cnts))), 2)`) is higher (i.e., worse) than the RMSE of the per-victim model (`r round(RMSE(incident_cnts$murders, incident_cnts$victims * global_murders_per_victim), 2)`). One reason is that the latter model performs better for incidents with three or fewer victims, which comprise `r round(count(filter(incident_cnts, victims %in% 1:3)) / cnt_all_incidents * 100, 2)`% of all incidents, so their errors have a substantial cumulative effect on the overall RMSE of a model. 
 
 
 ### Linear Model
 
 A linear model takes yet another approach, our final. The least squares method tries to capture the linear relationship between the number of victims and the number of murders across all data points, assuming each additional victim is associated with a *constant* change in the number of murders. 
 
-```{r linear_model}
+```{r linear_model, warning = F}
 
 # Build a simple linear model, based solely on the number of victims
 lm_fit <- lm(murders ~ victims, data = incident_cnts)
@@ -567,11 +567,15 @@ The per-victim and per-incident models predict that the murder rate stays the sa
 
 Based on RMSE alone, we should favor the linear model: However, the RMSE for the linear model (`r round(RMSE(incident_cnts$murders, predict(lm_fit, newdata = incident_cnts)), 2)`) is only slightly better than the per-victim model (`r round(RMSE(incident_cnts$murders, incident_cnts$victims * global_murders_per_victim), 2)`). 
 
-Moreover, the observed rate in above plot suggests that the per-victim and linear models both have regions where one works better than the other. At a high-level, the observed rate is bifurcated---less than 0.2 murders per victim for *n* < 4, and ~0.4 murders per victim for *n* > 3---a difference of approximately 2x. The per-victim model appears to work best for *n* < 4, and the linear model appears to work best for *n* > 3. 
+Moreover, the observed rate in the above plot suggests that the per-victim and linear models both have regions where one works better than the other. At a high-level, the observed rate is bifurcated---less than 0.2 murders per victim for *n* < 4, and ~0.4 murders per victim for *n* > 3---a difference of approximately 2x. 
+
+The per-victim model appears to work best for *n* < 4, and the linear model appears to work best for *n* > 3. 
+
+It's possible that the best way to model the murder rate would be to use a *combination* of models. There are multiple ways to combine models and achieve improved overall performance: mixture models, ensemble models, and more. 
 
 It's worth noting, however, that the upward trend in the murder rate for larger values of *n* could be an artifact of small sample sizes and that the linear model overfit to the few available incidents. 
 
-To mitigate the risk of small sample-bias elsewhere in this analysis, we used averages (i.e., global averages for the per-victim and per-incident models) and binning (i.e., combining bins with very few incidents to create a larger, more stable group for analysis). But nothing has been done to mitigate the risk of small-sample bias for the linear model. (The inclusion of confidence intervals might have made the effective of any small-sample bias more apparent.)
+To mitigate the risk of small-sample bias elsewhere in this analysis, we used averages (i.e., global averages for the per-victim and per-incident models) and binning (i.e., combining bins with very few incidents to create a larger, more stable group for analysis). But nothing has been done to mitigate the risk of small-sample bias for the linear model. (The inclusion of confidence intervals might have made the effective of any small-sample bias more apparent.)
 
 The data itself is another potential source of bias: 
 
@@ -579,6 +583,6 @@ The data itself is another potential source of bias:
 
 * Likewise, the definition of "murder" is not clear. For example, does murder depend on a verdict or plea of guilty? Would the historic count of murders change if a perpetrator were acquitted? Similarly, is manslaughter (an *unintentional* killing) considered the same as---or different from---murder (an *intentional* killing)? A clear definition of "murder" is important for both a correct framing of the analysis and interpretation of results.
 
-More research and analysis are required to address these issues, but the possibility exists that the best model for the murder rate is actually some combination of the three. There are multiple ways to combine models and achieve improved overall performance: mixture models, ensemble models, and more. 
+More research and analysis are required to address these issues. 
 
-Based on the analysis included in this paper, we can reasonably conclude that that the inflection point in murder rates isn’t between single- and multi-victim shootings: It’s between three and four victims. On average, the murder rate goes up when shootings involve four or more victims. 
+Based on the analysis presented in this paper, we can reasonably conclude that  the inflection point in murder rates isn’t between single- and multi-victim shootings: It’s between three and four victims. On average, the murder rate goes up when shootings involve four or more victims. 
