@@ -963,11 +963,14 @@ RMSE for the linear model (0.49) is only slightly better than the
 per-victim model (0.52).</p>
 <p>Moreover, the observed rate in the above plot suggests that the
 per-victim and linear models both have regions where one works better
-than the other. At a high-level, the observed rate is bifurcated—less
-than 0.2 murders per victim for <em>n</em> &lt; 4, and ~0.4 murders per
-victim for <em>n</em> &gt; 3—a difference of approximately 2x.</p>
-<p>The per-victim model appears to work best for <em>n</em> &lt; 4, and
-the linear model appears to work best for <em>n</em> &gt; 3.</p>
+than the other. At a high-level, the observed rate is bifurcated:</p>
+<ul>
+<li>For <em>n</em> &lt;= 3, the per-victim murder rate is below 0.2. The
+per-victim model appears to work best in this region.</li>
+<li>For <em>n</em> &gt; 4, the per-victim murder rate is approximately
+0.4 (a difference of over 2x). The linear model appears to work best in
+this region.</li>
+</ul>
 <p>It’s possible that the best way to model the murder rate would be to
 use a <em>combination</em> of models. There are multiple ways to combine
 models and achieve improved overall performance: mixture models,

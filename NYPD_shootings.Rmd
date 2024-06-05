@@ -4,8 +4,8 @@ author: "Ron Sielinski"
 date: "`r Sys.Date()`"
 output:
   word_document: default
-  pdf_document: default
   html_document: default
+  pdf_document: default
 data_URL: "https://data.cityofnewyork.us/api/views/833y-fsy8/rows.csv?accessType=DOWNLOAD"
 ---
 
@@ -567,9 +567,10 @@ The per-victim and per-incident models predict that the murder rate stays the sa
 
 Based on RMSE alone, we should favor the linear model: However, the RMSE for the linear model (`r round(RMSE(incident_cnts$murders, predict(lm_fit, newdata = incident_cnts)), 2)`) is only slightly better than the per-victim model (`r round(RMSE(incident_cnts$murders, incident_cnts$victims * global_murders_per_victim), 2)`). 
 
-Moreover, the observed rate in the above plot suggests that the per-victim and linear models both have regions where one works better than the other. At a high-level, the observed rate is bifurcated---less than 0.2 murders per victim for *n* < 4, and ~0.4 murders per victim for *n* > 3---a difference of approximately 2x. 
+Moreover, the observed rate in the above plot suggests that the per-victim and linear models both have regions where one works better than the other. At a high-level, the observed rate is bifurcated: 
 
-The per-victim model appears to work best for *n* < 4, and the linear model appears to work best for *n* > 3. 
+* For *n* <= 3, the per-victim murder rate is below 0.2. The per-victim model appears to work best in this region.
+* For *n* > 4, the per-victim murder rate is approximately 0.4 (a difference of over 2x). The linear model appears to work best in this region. 
 
 It's possible that the best way to model the murder rate would be to use a *combination* of models. There are multiple ways to combine models and achieve improved overall performance: mixture models, ensemble models, and more. 
 
@@ -585,4 +586,4 @@ The data itself is another potential source of bias:
 
 More research and analysis are required to address these issues. 
 
-Based on the analysis presented in this paper, we can reasonably conclude that  the inflection point in murder rates isn’t between single- and multi-victim shootings: It’s between three and four victims. On average, the murder rate goes up when shootings involve four or more victims. 
+Based on the analysis presented in this paper, we can reasonably conclude that the inflection point in murder rates isn’t between single- and multi-victim shootings: It’s between three and four victims. On average, the murder rate goes up when shootings involve four or more victims. 
